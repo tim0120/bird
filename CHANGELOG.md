@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 — Unreleased
+## 0.2.0 — 2025-12-26
 
 ### Added
 - Output controls: `--plain`, `--no-emoji`, `--no-color` (respects `NO_COLOR`).
