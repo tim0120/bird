@@ -1215,6 +1215,81 @@ describe('TwitterClient', () => {
       const parsedFeatures = JSON.parse(new URL(url as string).searchParams.get('features') as string);
       expect(parsedFeatures.graphql_timeline_v2_bookmark_timeline).toBe(true);
     });
+
+    it('retries without count when API rejects the count variable', async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            errors: [{ message: 'Variable "$count" is not defined by operation' }],
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              bookmark_collection_timeline: {
+                timeline: {
+                  instructions: [
+                    {
+                      entries: [
+                        {
+                          content: {
+                            itemContent: {
+                              tweet_results: {
+                                result: {
+                                  rest_id: '9',
+                                  legacy: {
+                                    full_text: 'saved in folder',
+                                    created_at: '2024-01-01T00:00:00Z',
+                                    reply_count: 0,
+                                    retweet_count: 0,
+                                    favorite_count: 0,
+                                    conversation_id_str: '9',
+                                  },
+                                  core: {
+                                    user_results: {
+                                      result: {
+                                        rest_id: 'u9',
+                                        legacy: { screen_name: 'folder', name: 'Folder' },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          }),
+        });
+
+      const client = new TwitterClient({ cookies: validCookies });
+      const clientPrivate = client as TwitterClient & { getBookmarkFolderQueryIds: () => Promise<string[]> };
+      clientPrivate.getBookmarkFolderQueryIds = async () => ['test'];
+
+      const result = await client.getBookmarkFolderTimeline('123', 2);
+
+      expect(result.success).toBe(true);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      const firstVars = JSON.parse(
+        new URL(mockFetch.mock.calls[0][0] as string).searchParams.get('variables') as string,
+      );
+      const secondVars = JSON.parse(
+        new URL(mockFetch.mock.calls[1][0] as string).searchParams.get('variables') as string,
+      );
+
+      expect(firstVars.count).toBe(2);
+      expect(secondVars.count).toBeUndefined();
+    });
   });
 
   describe('conversation helpers', () => {

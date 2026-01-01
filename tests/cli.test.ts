@@ -50,5 +50,10 @@ describe('CLI utilities', () => {
     it('should return null for invalid values', () => {
       expect(extractBookmarkFolderId('not-an-id')).toBeNull();
     });
+
+    it('should return null for folder_id query URLs', () => {
+      const url = 'https://x.com/i/bookmarks?folder_id=1976792203235119344';
+      expect(extractBookmarkFolderId(url)).toBeNull();
+    });
   });
 });
