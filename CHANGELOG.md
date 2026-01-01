@@ -2,6 +2,12 @@
 
 ## 0.4.2 — Unreleased
 
+### Added
+- `likes` command to list your liked tweets (thanks @swairshah).
+
+### Changed
+- Query ID updater now tracks the Likes GraphQL operation.
+
 ## 0.4.1 — 2025-12-31
 
 ### Added

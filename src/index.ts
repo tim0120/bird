@@ -151,6 +151,7 @@ const KNOWN_COMMANDS = new Set([
   'search',
   'mentions',
   'bookmarks',
+  'likes',
   'help',
   'whoami',
   'check',
@@ -348,6 +349,7 @@ program
       'SearchTimeline',
       'UserArticlesTweets',
       'Bookmarks',
+      'Likes',
     ];
 
     if (cmdOpts.fresh) {
@@ -747,6 +749,39 @@ program
       printTweets(result.tweets, { json: cmdOpts.json, emptyMessage });
     } else {
       console.error(`${p('err')}Failed to fetch bookmarks: ${result.error}`);
+      process.exit(1);
+    }
+  });
+
+// Likes command - get user's liked tweets
+program
+  .command('likes')
+  .description('Get your liked tweets')
+  .option('-n, --count <number>', 'Number of likes to fetch', '20')
+  .option('--json', 'Output as JSON')
+  .action(async (cmdOpts: { count?: string; json?: boolean }) => {
+    const opts = program.opts();
+    const timeoutMs = resolveTimeoutFromOptions(opts);
+    const count = Number.parseInt(cmdOpts.count || '20', 10);
+
+    const { cookies, warnings } = await resolveCredentialsFromOptions(opts);
+
+    for (const warning of warnings) {
+      console.error(`${p('warn')}${warning}`);
+    }
+
+    if (!cookies.authToken || !cookies.ct0) {
+      console.error(`${p('err')}Missing required credentials`);
+      process.exit(1);
+    }
+
+    const client = new TwitterClient({ cookies, timeoutMs });
+    const result = await client.getLikes(count);
+
+    if (result.success && result.tweets) {
+      printTweets(result.tweets, { json: cmdOpts.json, emptyMessage: 'No liked tweets found.' });
+    } else {
+      console.error(`${p('err')}Failed to fetch likes: ${result.error}`);
       process.exit(1);
     }
   });

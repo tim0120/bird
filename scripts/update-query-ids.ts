@@ -14,6 +14,7 @@ const TARGET_OPERATIONS = [
   'TweetDetail',
   'SearchTimeline',
   'Bookmarks',
+  'Likes',
 ] as const;
 
 type OperationName = (typeof TARGET_OPERATIONS)[number];
