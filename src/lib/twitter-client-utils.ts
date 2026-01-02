@@ -1,4 +1,4 @@
-import type { GraphqlTweetResult, TweetData, TwitterUser } from './twitter-client-types.js';
+import type { GraphqlMediaEntity, GraphqlTweetResult, TweetData, TweetMedia, TwitterUser } from './twitter-client-types.js';
 
 export function normalizeQuoteDepth(value?: number): number {
   if (value === undefined || value === null) {
@@ -153,6 +153,64 @@ export function extractTweetText(result: GraphqlTweetResult | undefined): string
   return extractArticleText(result) ?? extractNoteTweetText(result) ?? firstText(result?.legacy?.full_text);
 }
 
+export function extractMedia(result: GraphqlTweetResult | undefined): TweetMedia[] | undefined {
+  // Prefer extended_entities (has video info), fall back to entities
+  const rawMedia = result?.legacy?.extended_entities?.media ?? result?.legacy?.entities?.media;
+  if (!rawMedia || rawMedia.length === 0) {
+    return undefined;
+  }
+
+  const media: TweetMedia[] = [];
+
+  for (const item of rawMedia) {
+    if (!item.type || !item.media_url_https) {
+      continue;
+    }
+
+    const mediaItem: TweetMedia = {
+      type: item.type,
+      url: item.media_url_https,
+    };
+
+    // Get dimensions from largest available size
+    const sizes = item.sizes;
+    if (sizes?.large) {
+      mediaItem.width = sizes.large.w;
+      mediaItem.height = sizes.large.h;
+    } else if (sizes?.medium) {
+      mediaItem.width = sizes.medium.w;
+      mediaItem.height = sizes.medium.h;
+    }
+
+    // For thumbnails/previews
+    if (sizes?.small) {
+      mediaItem.previewUrl = `${item.media_url_https}:small`;
+    }
+
+    // Extract video URL for video/animated_gif
+    if ((item.type === 'video' || item.type === 'animated_gif') && item.video_info?.variants) {
+      // Find highest bitrate mp4 variant
+      const mp4Variants = item.video_info.variants
+        .filter((v): v is { bitrate: number; content_type: string; url: string } =>
+          v.content_type === 'video/mp4' && typeof v.bitrate === 'number' && typeof v.url === 'string'
+        )
+        .sort((a, b) => b.bitrate - a.bitrate);
+
+      if (mp4Variants.length > 0) {
+        mediaItem.videoUrl = mp4Variants[0].url;
+      }
+
+      if (item.video_info.duration_millis) {
+        mediaItem.durationMs = item.video_info.duration_millis;
+      }
+    }
+
+    media.push(mediaItem);
+  }
+
+  return media.length > 0 ? media : undefined;
+}
+
 export function unwrapTweetResult(result: GraphqlTweetResult | undefined): GraphqlTweetResult | undefined {
   if (!result) {
     return undefined;
@@ -163,19 +221,7 @@ export function unwrapTweetResult(result: GraphqlTweetResult | undefined): Graph
   return result;
 }
 
-export interface MapTweetResultOptions {
-  quoteDepth: number;
-  includeRaw?: boolean;
-}
-
-export function mapTweetResult(
-  result: GraphqlTweetResult | undefined,
-  quoteDepthOrOptions: number | MapTweetResultOptions,
-): TweetData | undefined {
-  const options: MapTweetResultOptions =
-    typeof quoteDepthOrOptions === 'number' ? { quoteDepth: quoteDepthOrOptions } : quoteDepthOrOptions;
-  const { quoteDepth, includeRaw = false } = options;
-
+export function mapTweetResult(result: GraphqlTweetResult | undefined, quoteDepth: number): TweetData | undefined {
   const userResult = result?.core?.user_results?.result;
   const userLegacy = userResult?.legacy;
   const userCore = userResult?.core;
@@ -195,11 +241,13 @@ export function mapTweetResult(
   if (quoteDepth > 0) {
     const quotedResult = unwrapTweetResult(result.quoted_status_result?.result);
     if (quotedResult) {
-      quotedTweet = mapTweetResult(quotedResult, { quoteDepth: quoteDepth - 1, includeRaw });
+      quotedTweet = mapTweetResult(quotedResult, quoteDepth - 1);
     }
   }
 
-  const tweetData: TweetData = {
+  const media = extractMedia(result);
+
+  return {
     id: result.rest_id,
     text,
     createdAt: result.legacy?.created_at,
@@ -214,13 +262,8 @@ export function mapTweetResult(
     },
     authorId: userId,
     quotedTweet,
+    media,
   };
-
-  if (includeRaw) {
-    tweetData._raw = result;
-  }
-
-  return tweetData;
 }
 
 export function findTweetInInstructions(
@@ -312,11 +355,6 @@ export function collectTweetResultsFromEntry(entry: {
   return results;
 }
 
-export interface ParseTweetsOptions {
-  quoteDepth: number;
-  includeRaw?: boolean;
-}
-
 export function parseTweetsFromInstructions(
   instructions:
     | Array<{
@@ -359,12 +397,8 @@ export function parseTweetsFromInstructions(
         }>;
       }>
     | undefined,
-  quoteDepthOrOptions: number | ParseTweetsOptions,
+  quoteDepth: number,
 ): TweetData[] {
-  const options: ParseTweetsOptions =
-    typeof quoteDepthOrOptions === 'number' ? { quoteDepth: quoteDepthOrOptions } : quoteDepthOrOptions;
-  const { quoteDepth, includeRaw = false } = options;
-
   const tweets: TweetData[] = [];
   const seen = new Set<string>();
 
@@ -372,7 +406,7 @@ export function parseTweetsFromInstructions(
     for (const entry of instruction.entries ?? []) {
       const results = collectTweetResultsFromEntry(entry);
       for (const result of results) {
-        const mapped = mapTweetResult(result, { quoteDepth, includeRaw });
+        const mapped = mapTweetResult(result, quoteDepth);
         if (!mapped || seen.has(mapped.id)) {
           continue;
         }
