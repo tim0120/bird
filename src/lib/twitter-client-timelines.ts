@@ -201,6 +201,7 @@ export function withTimelines<TBase extends AbstractConstructor<TwitterClientBas
       const seen = new Set<string>();
       const tweets: TweetData[] = [];
       let cursor: string | undefined = options.cursor;
+      let nextCursor: string | undefined;
       let pagesFetched = 0;
       const { includeRaw = false, maxPages } = options;
 
@@ -339,17 +340,20 @@ export function withTimelines<TBase extends AbstractConstructor<TwitterClientBas
           }
         }
 
-        if (!page.cursor || page.cursor === cursor || page.tweets.length === 0) {
+        const pageCursor = page.cursor;
+        if (!pageCursor || pageCursor === cursor || page.tweets.length === 0) {
+          nextCursor = undefined;
           break;
         }
         if (maxPages && pagesFetched >= maxPages) {
-          cursor = page.cursor;
+          nextCursor = pageCursor;
           break;
         }
-        cursor = page.cursor;
+        cursor = pageCursor;
+        nextCursor = pageCursor;
       }
 
-      return { success: true, tweets, nextCursor: cursor };
+      return { success: true, tweets, nextCursor };
     }
 
     private async getBookmarkFolderTimelinePaged(
@@ -362,6 +366,7 @@ export function withTimelines<TBase extends AbstractConstructor<TwitterClientBas
       const seen = new Set<string>();
       const tweets: TweetData[] = [];
       let cursor: string | undefined = options.cursor;
+      let nextCursor: string | undefined;
       let pagesFetched = 0;
       const { includeRaw = false, maxPages } = options;
 
@@ -516,17 +521,20 @@ export function withTimelines<TBase extends AbstractConstructor<TwitterClientBas
           }
         }
 
-        if (!page.cursor || page.cursor === cursor || page.tweets.length === 0) {
+        const pageCursor = page.cursor;
+        if (!pageCursor || pageCursor === cursor || page.tweets.length === 0) {
+          nextCursor = undefined;
           break;
         }
         if (maxPages && pagesFetched >= maxPages) {
-          cursor = page.cursor;
+          nextCursor = pageCursor;
           break;
         }
-        cursor = page.cursor;
+        cursor = pageCursor;
+        nextCursor = pageCursor;
       }
 
-      return { success: true, tweets, nextCursor: cursor };
+      return { success: true, tweets, nextCursor };
     }
 
     private async fetchWithRetry(url: string, init: RequestInit): Promise<Response> {

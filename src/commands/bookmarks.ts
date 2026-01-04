@@ -40,11 +40,11 @@ export function registerBookmarksCommand(program: Command, ctx: CliContext): voi
           process.exit(1);
         }
 
-        if (maxPages !== undefined && !cmdOpts.all) {
-          console.error(`${ctx.p('err')}--max-pages requires --all.`);
+        const usePagination = cmdOpts.all || cmdOpts.cursor;
+        if (maxPages !== undefined && !usePagination) {
+          console.error(`${ctx.p('err')}--max-pages requires --all or --cursor.`);
           process.exit(1);
         }
-        const usePagination = cmdOpts.all || cmdOpts.cursor;
         if (!usePagination && (!Number.isFinite(count) || count <= 0)) {
           console.error(`${ctx.p('err')}Invalid --count. Expected a positive integer.`);
           process.exit(1);
@@ -74,9 +74,8 @@ export function registerBookmarksCommand(program: Command, ctx: CliContext): voi
         if (result.success && result.tweets) {
           const emptyMessage = folderId ? 'No bookmarks found in folder.' : 'No bookmarks found.';
           const isJson = cmdOpts.json || cmdOpts.jsonFull;
-          if (isJson && result.nextCursor) {
-            // Output with nextCursor for pagination
-            console.log(JSON.stringify({ tweets: result.tweets, nextCursor: result.nextCursor }, null, 2));
+          if (isJson && usePagination) {
+            console.log(JSON.stringify({ tweets: result.tweets, nextCursor: result.nextCursor ?? null }, null, 2));
           } else {
             ctx.printTweets(result.tweets, { json: isJson, emptyMessage });
           }
