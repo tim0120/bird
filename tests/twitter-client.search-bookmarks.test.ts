@@ -630,7 +630,65 @@ describe('TwitterClient bookmarks', () => {
 
     expect(result.success).toBe(true);
     expect(result.tweets?.map((tweet) => tweet.id)).toEqual(['1']);
+    expect(result.nextCursor).toBe('cursor-1');
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not return a stale cursor when pagination ends', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          bookmark_timeline_v2: {
+            timeline: {
+              instructions: [
+                {
+                  entries: [
+                    {
+                      content: {
+                        itemContent: {
+                          tweet_results: {
+                            result: {
+                              rest_id: '1',
+                              legacy: {
+                                full_text: 'saved page 1',
+                                created_at: '2024-01-01T00:00:00Z',
+                                reply_count: 0,
+                                retweet_count: 0,
+                                favorite_count: 0,
+                                conversation_id_str: '1',
+                              },
+                              core: {
+                                user_results: {
+                                  result: {
+                                    rest_id: 'u1',
+                                    legacy: { screen_name: 'root', name: 'Root' },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      }),
+    });
+
+    const client = new TwitterClient({ cookies: validCookies });
+    const result = await client.getAllBookmarks({ cursor: 'cursor-1' });
+
+    expect(result.success).toBe(true);
+    expect(result.nextCursor).toBeUndefined();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const vars = JSON.parse(new URL(mockFetch.mock.calls[0][0] as string).searchParams.get('variables') as string);
+    expect(vars.cursor).toBe('cursor-1');
   });
 
   it('treats graphql errors as non-fatal when instructions are present', async () => {

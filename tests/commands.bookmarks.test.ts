@@ -4,7 +4,7 @@ import type { CliContext } from '../src/cli/shared.js';
 import { registerBookmarksCommand } from '../src/commands/bookmarks.js';
 
 describe('bookmarks command', () => {
-  it('requires --all when --max-pages is provided', async () => {
+  it('requires --all or --cursor when --max-pages is provided', async () => {
     const program = new Command();
     const ctx = {
       resolveTimeoutFromOptions: () => undefined,
@@ -24,7 +24,7 @@ describe('bookmarks command', () => {
 
     try {
       await expect(program.parseAsync(['node', 'bird', 'bookmarks', '--max-pages', '2'])).rejects.toThrow('exit 1');
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('--max-pages requires --all'));
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('--max-pages requires --all or --cursor'));
     } finally {
       exitSpy.mockRestore();
       errorSpy.mockRestore();
