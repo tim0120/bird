@@ -18,9 +18,7 @@ describe('unbookmark command', () => {
       extractTweetId,
     } as unknown as CliContext;
 
-    const unbookmarkSpy = vi
-      .spyOn(TwitterClient.prototype, 'unbookmark')
-      .mockResolvedValue({ success: true });
+    const unbookmarkSpy = vi.spyOn(TwitterClient.prototype, 'unbookmark').mockResolvedValue({ success: true });
 
     registerUnbookmarkCommand(program, ctx);
 
@@ -63,9 +61,7 @@ describe('unbookmark command', () => {
     registerUnbookmarkCommand(program, ctx);
 
     try {
-      await expect(
-        program.parseAsync(['node', 'bird', 'unbookmark', '1', '2']),
-      ).rejects.toThrow('exit 1');
+      await expect(program.parseAsync(['node', 'bird', 'unbookmark', '1', '2'])).rejects.toThrow('exit 1');
     } finally {
       unbookmarkSpy.mockRestore();
       exitSpy.mockRestore();

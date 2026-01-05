@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TWITTER_GRAPHQL_POST_URL } from '../src/lib/twitter-client-constants.js';
 import { TwitterClient } from '../src/lib/twitter-client.js';
+import { TWITTER_GRAPHQL_POST_URL } from '../src/lib/twitter-client-constants.js';
 
 const validCookies = {
   authToken: 'test_auth_token',
