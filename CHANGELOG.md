@@ -6,6 +6,11 @@
 - Bookmark exports now support pagination (`--all`, `--max-pages`) with retries (#15) — thanks @Nano1337.
 - `lists` + `list-timeline` commands for Twitter Lists (#21) — thanks @harperreed
 - Tweet JSON output now includes media items (photos, videos, GIFs) (#14) — thanks @Hormold
+
+### Fixed
+- Set `responsive_web_grok_annotations_enabled` across feature sets (#25) — thanks @pepicrft.
+- Restore `--json-full` `_raw` mapping in tweet parsing (#25) — thanks @pepicrft.
+
 ## 0.5.1 — 2026-01-01
 
 ### Changed

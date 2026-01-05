@@ -223,6 +223,8 @@ export interface TweetData {
   likeCount?: number;
   conversationId?: string;
   inReplyToStatusId?: string;
+  // Raw GraphQL response when includeRaw is enabled.
+  _raw?: GraphqlTweetResult;
   // Optional quoted tweet; depth controlled by quoteDepth (default: 1).
   quotedTweet?: TweetData;
   // Media attachments (photos, videos, GIFs)

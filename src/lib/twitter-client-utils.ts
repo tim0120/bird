@@ -10,6 +10,21 @@ export function normalizeQuoteDepth(value?: number): number {
   return Math.max(0, Math.floor(value));
 }
 
+type TweetMappingOptions = {
+  quoteDepth: number;
+  includeRaw?: boolean;
+};
+
+function normalizeTweetMappingOptions(options: number | TweetMappingOptions): {
+  quoteDepth: number;
+  includeRaw: boolean;
+} {
+  if (typeof options === 'number') {
+    return { quoteDepth: options, includeRaw: false };
+  }
+  return { quoteDepth: options.quoteDepth, includeRaw: options.includeRaw ?? false };
+}
+
 export function firstText(...values: Array<string | undefined | null>): string | undefined {
   for (const value of values) {
     if (typeof value === 'string') {
@@ -224,7 +239,11 @@ export function unwrapTweetResult(result: GraphqlTweetResult | undefined): Graph
   return result;
 }
 
-export function mapTweetResult(result: GraphqlTweetResult | undefined, quoteDepth: number): TweetData | undefined {
+export function mapTweetResult(
+  result: GraphqlTweetResult | undefined,
+  options: number | TweetMappingOptions,
+): TweetData | undefined {
+  const { quoteDepth, includeRaw } = normalizeTweetMappingOptions(options);
   const userResult = result?.core?.user_results?.result;
   const userLegacy = userResult?.legacy;
   const userCore = userResult?.core;
@@ -244,7 +263,10 @@ export function mapTweetResult(result: GraphqlTweetResult | undefined, quoteDept
   if (quoteDepth > 0) {
     const quotedResult = unwrapTweetResult(result.quoted_status_result?.result);
     if (quotedResult) {
-      quotedTweet = mapTweetResult(quotedResult, quoteDepth - 1);
+      quotedTweet = mapTweetResult(quotedResult, {
+        quoteDepth: quoteDepth - 1,
+        includeRaw,
+      });
     }
   }
 
@@ -266,6 +288,7 @@ export function mapTweetResult(result: GraphqlTweetResult | undefined, quoteDept
     authorId: userId,
     quotedTweet,
     media,
+    ...(includeRaw ? { _raw: result } : {}),
   };
 }
 
@@ -400,8 +423,9 @@ export function parseTweetsFromInstructions(
         }>;
       }>
     | undefined,
-  quoteDepth: number,
+  options: number | TweetMappingOptions,
 ): TweetData[] {
+  const { quoteDepth, includeRaw } = normalizeTweetMappingOptions(options);
   const tweets: TweetData[] = [];
   const seen = new Set<string>();
 
@@ -409,7 +433,7 @@ export function parseTweetsFromInstructions(
     for (const entry of instruction.entries ?? []) {
       const results = collectTweetResultsFromEntry(entry);
       for (const result of results) {
-        const mapped = mapTweetResult(result, quoteDepth);
+        const mapped = mapTweetResult(result, { quoteDepth, includeRaw });
         if (!mapped || seen.has(mapped.id)) {
           continue;
         }
