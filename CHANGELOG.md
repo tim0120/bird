@@ -5,6 +5,7 @@
 ### Added
 - `list-timeline` now supports pagination (`--all`, `--max-pages`, `--cursor`) (#30) — thanks @zheli.
 - `home` command for the "For You" and "Following" home timelines (#31) — thanks @odysseus0.
+- Rich text output now shows article previews, quoted tweets, and media links (#32) — thanks @odysseus0.
 
 ### Fixed
 - macOS cookie extraction now supports Brave keychain storage (#40) — thanks @gakonst.

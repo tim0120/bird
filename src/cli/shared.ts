@@ -318,9 +318,66 @@ export function createCliContext(normalizedArgs: string[], env: NodeJS.ProcessEn
       console.log(opts.emptyMessage ?? 'No tweets found.');
       return;
     }
+    const useEmoji = output.emoji && !output.plain;
+    const articleLabel = useEmoji ? '📰' : 'Article:';
+    const mediaLabel = (type: 'photo' | 'video' | 'animated_gif'): string => {
+      if (useEmoji) {
+        return type === 'video' ? '🎬' : type === 'animated_gif' ? '🔄' : '🖼️';
+      }
+      return type === 'video' ? 'VIDEO:' : type === 'animated_gif' ? 'GIF:' : 'PHOTO:';
+    };
+    const quotePrefix = useEmoji ? { top: '┌─', mid: '│ ', bot: '└─' } : { top: '> ', mid: '> ', bot: '> ' };
+
     for (const tweet of tweets) {
       console.log(`\n@${tweet.author.username} (${tweet.author.name}):`);
-      console.log(tweet.text);
+
+      // Display tweet text, with article indicator if present
+      if (tweet.article) {
+        // Full body mode: text starts with article title (from extractArticleText)
+        // Preview mode: text is short tweet intro that doesn't start with title
+        const hasFullBody = tweet.text.startsWith(tweet.article.title);
+        if (hasFullBody) {
+          console.log(`${articleLabel} ${tweet.text}`);
+        } else {
+          console.log(`${articleLabel} ${tweet.article.title}`);
+          if (tweet.article.previewText) {
+            console.log(`   ${tweet.article.previewText}`);
+          }
+        }
+      } else {
+        console.log(tweet.text);
+      }
+
+      // Display media attachments
+      if (tweet.media && tweet.media.length > 0) {
+        for (const m of tweet.media) {
+          console.log(`${mediaLabel(m.type)} ${m.url}`);
+        }
+      }
+
+      // Display quoted tweet
+      if (tweet.quotedTweet) {
+        console.log(`${quotePrefix.top} QT @${tweet.quotedTweet.author.username}:`);
+        const qtText = tweet.quotedTweet.article
+          ? `${articleLabel} ${tweet.quotedTweet.article.title}`
+          : tweet.quotedTweet.text;
+        // Indent and truncate quoted tweet text
+        const maxLen = 280;
+        const truncated = qtText.length > maxLen ? `${qtText.slice(0, maxLen)}...` : qtText;
+        for (const line of truncated.split('\n').slice(0, 4)) {
+          console.log(`${quotePrefix.mid}${line}`);
+        }
+        // Display quoted tweet media
+        if (tweet.quotedTweet.media && tweet.quotedTweet.media.length > 0) {
+          for (const m of tweet.quotedTweet.media) {
+            console.log(`${quotePrefix.mid}${mediaLabel(m.type)} ${m.url}`);
+          }
+        }
+        console.log(
+          `${quotePrefix.bot} https://x.com/${tweet.quotedTweet.author.username}/status/${tweet.quotedTweet.id}`,
+        );
+      }
+
       if (tweet.createdAt) {
         console.log(`${l('date')}${tweet.createdAt}`);
       }
