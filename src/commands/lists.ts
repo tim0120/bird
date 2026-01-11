@@ -83,59 +83,71 @@ export function registerListsCommand(program: Command, ctx: CliContext): void {
     .option('--cursor <string>', 'Resume pagination from a cursor')
     .option('--json', 'Output as JSON')
     .option('--json-full', 'Output as JSON with full raw API response in _raw field')
-    .action(async (listIdOrUrl: string, cmdOpts: { count?: string; json?: boolean; jsonFull?: boolean; all?: boolean; maxPages?: string; cursor?: string }) => {
-      const opts = program.opts();
-      const timeoutMs = ctx.resolveTimeoutFromOptions(opts);
-      const quoteDepth = ctx.resolveQuoteDepthFromOptions(opts);
-      const count = Number.parseInt(cmdOpts.count || '20', 10);
-      const maxPages = cmdOpts.maxPages ? Number.parseInt(cmdOpts.maxPages, 10) : undefined;
+    .action(
+      async (
+        listIdOrUrl: string,
+        cmdOpts: {
+          count?: string;
+          json?: boolean;
+          jsonFull?: boolean;
+          all?: boolean;
+          maxPages?: string;
+          cursor?: string;
+        },
+      ) => {
+        const opts = program.opts();
+        const timeoutMs = ctx.resolveTimeoutFromOptions(opts);
+        const quoteDepth = ctx.resolveQuoteDepthFromOptions(opts);
+        const count = Number.parseInt(cmdOpts.count || '20', 10);
+        const maxPages = cmdOpts.maxPages ? Number.parseInt(cmdOpts.maxPages, 10) : undefined;
 
-      const listId = extractListId(listIdOrUrl);
-      if (!listId) {
-        console.error(`${ctx.p('err')}Invalid list ID or URL. Expected numeric ID or https://x.com/i/lists/<id>.`);
-        process.exit(2);
-      }
-
-      const usePagination = cmdOpts.all || cmdOpts.cursor || maxPages !== undefined;
-      if (!usePagination && (!Number.isFinite(count) || count <= 0)) {
-        console.error(`${ctx.p('err')}Invalid --count. Expected a positive integer.`);
-        process.exit(1);
-      }
-      if (maxPages !== undefined && (!Number.isFinite(maxPages) || maxPages <= 0)) {
-        console.error(`${ctx.p('err')}Invalid --max-pages. Expected a positive integer.`);
-        process.exit(1);
-      }
-
-      const { cookies, warnings } = await ctx.resolveCredentialsFromOptions(opts);
-
-      for (const warning of warnings) {
-        console.error(`${ctx.p('warn')}${warning}`);
-      }
-
-      if (!cookies.authToken || !cookies.ct0) {
-        console.error(`${ctx.p('err')}Missing required credentials`);
-        process.exit(1);
-      }
-
-      const client = new TwitterClient({ cookies, timeoutMs, quoteDepth });
-      const includeRaw = cmdOpts.jsonFull ?? false;
-      const timelineOptions = { includeRaw };
-      const paginationOptions = { includeRaw, maxPages, cursor: cmdOpts.cursor };
-
-      const result = usePagination
-        ? await client.getAllListTimeline(listId, paginationOptions)
-        : await client.getListTimeline(listId, count, timelineOptions);
-
-      if (result.success && result.tweets) {
-        const isJson = cmdOpts.json || cmdOpts.jsonFull;
-        if (isJson && usePagination) {
-          console.log(JSON.stringify({ tweets: result.tweets, nextCursor: result.nextCursor ?? null }, null, 2));
-        } else {
-          ctx.printTweets(result.tweets, { json: isJson, emptyMessage: 'No tweets found in this list.' });
+        const listId = extractListId(listIdOrUrl);
+        if (!listId) {
+          console.error(`${ctx.p('err')}Invalid list ID or URL. Expected numeric ID or https://x.com/i/lists/<id>.`);
+          process.exit(2);
         }
-      } else {
-        console.error(`${ctx.p('err')}Failed to fetch list timeline: ${result.error}`);
-        process.exit(1);
-      }
-    });
+
+        const usePagination = cmdOpts.all || cmdOpts.cursor || maxPages !== undefined;
+        if (!usePagination && (!Number.isFinite(count) || count <= 0)) {
+          console.error(`${ctx.p('err')}Invalid --count. Expected a positive integer.`);
+          process.exit(1);
+        }
+        if (maxPages !== undefined && (!Number.isFinite(maxPages) || maxPages <= 0)) {
+          console.error(`${ctx.p('err')}Invalid --max-pages. Expected a positive integer.`);
+          process.exit(1);
+        }
+
+        const { cookies, warnings } = await ctx.resolveCredentialsFromOptions(opts);
+
+        for (const warning of warnings) {
+          console.error(`${ctx.p('warn')}${warning}`);
+        }
+
+        if (!cookies.authToken || !cookies.ct0) {
+          console.error(`${ctx.p('err')}Missing required credentials`);
+          process.exit(1);
+        }
+
+        const client = new TwitterClient({ cookies, timeoutMs, quoteDepth });
+        const includeRaw = cmdOpts.jsonFull ?? false;
+        const timelineOptions = { includeRaw };
+        const paginationOptions = { includeRaw, maxPages, cursor: cmdOpts.cursor };
+
+        const result = usePagination
+          ? await client.getAllListTimeline(listId, paginationOptions)
+          : await client.getListTimeline(listId, count, timelineOptions);
+
+        if (result.success && result.tweets) {
+          const isJson = cmdOpts.json || cmdOpts.jsonFull;
+          if (isJson && usePagination) {
+            console.log(JSON.stringify({ tweets: result.tweets, nextCursor: result.nextCursor ?? null }, null, 2));
+          } else {
+            ctx.printTweets(result.tweets, { json: isJson, emptyMessage: 'No tweets found in this list.' });
+          }
+        } else {
+          console.error(`${ctx.p('err')}Failed to fetch list timeline: ${result.error}`);
+          process.exit(1);
+        }
+      },
+    );
 }

@@ -458,19 +458,21 @@ export function withLists<TBase extends AbstractConstructor<TwitterClientBase>>(
         }
         pagesFetched += 1;
 
+        let added = 0;
         for (const tweet of page.tweets) {
           if (seen.has(tweet.id)) {
             continue;
           }
           seen.add(tweet.id);
           tweets.push(tweet);
+          added += 1;
           if (!unlimited && tweets.length >= limit) {
             break;
           }
         }
 
         const pageCursor = page.cursor;
-        if (!pageCursor || pageCursor === cursor || page.tweets.length === 0) {
+        if (!pageCursor || pageCursor === cursor || page.tweets.length === 0 || added === 0) {
           nextCursor = undefined;
           break;
         }
