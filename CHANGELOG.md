@@ -14,6 +14,9 @@
 - Lists GraphQL feature flags updated to prevent 400s (#27) — thanks @zheli.
 - Likes pagination now follows cursors and avoids stalling on duplicate pages (#12) — thanks @titouv.
 
+### Tests
+- Following: split following/likes tests + cover cursor handling (#33) — thanks @VACInc.
+
 ## 0.6.0 — 2026-01-05
 
 ### Added
@@ -22,7 +25,6 @@
 - Tweet JSON output now includes media items (photos, videos, GIFs) (#14) — thanks @Hormold
 - Bookmarks can resume pagination from a cursor (#26) — thanks @leonho
 - `unbookmark` command to remove bookmarked tweets (#22) — thanks @mbelinky.
-- `following` now paginates with cursors and surfaces partial-page errors (#33) — thanks @VACInc.
 
 ### Changed
 - Feature flags can be overridden at runtime via `features.json` (refreshable via `query-ids`).
