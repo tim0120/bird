@@ -92,8 +92,8 @@ interface ContentBlock {
   data?: {
     mentions?: Array<{ fromIndex: number; toIndex: number; text: string }>;
   };
-  entityRanges: EntityRange[];
-  inlineStyleRanges: InlineStyleRange[];
+  entityRanges?: EntityRange[];
+  inlineStyleRanges?: InlineStyleRange[];
 }
 
 /** Entity data for different entity types */
@@ -116,7 +116,7 @@ interface EntityMapEntry {
 /** Draft.js content state structure */
 interface ContentState {
   blocks: ContentBlock[];
-  entityMap: EntityMapEntry[];
+  entityMap?: Array<EntityMapEntry> | Record<string, EntityValue>;
 }
 
 /**
@@ -128,12 +128,22 @@ export function renderContentState(contentState: ContentState | undefined): stri
     return undefined;
   }
 
-  // Build entity lookup map from array format
+  // Build entity lookup map from array/object formats
   const entityMap = new Map<number, EntityValue>();
-  for (const entry of contentState.entityMap ?? []) {
-    const key = Number.parseInt(entry.key, 10);
-    if (!Number.isNaN(key)) {
-      entityMap.set(key, entry.value);
+  const rawEntityMap = contentState.entityMap ?? [];
+  if (Array.isArray(rawEntityMap)) {
+    for (const entry of rawEntityMap) {
+      const key = Number.parseInt(entry.key, 10);
+      if (!Number.isNaN(key)) {
+        entityMap.set(key, entry.value);
+      }
+    }
+  } else {
+    for (const [key, value] of Object.entries(rawEntityMap)) {
+      const keyNumber = Number.parseInt(key, 10);
+      if (!Number.isNaN(keyNumber)) {
+        entityMap.set(keyNumber, value);
+      }
     }
   }
 
@@ -239,7 +249,7 @@ function renderBlockText(block: ContentBlock, entityMap: Map<number, EntityValue
 
   // Handle LINK entities by appending URL in markdown format
   // Process in reverse order to not mess up offsets
-  const linkRanges = block.entityRanges
+  const linkRanges = (block.entityRanges ?? [])
     .filter((range) => {
       const entity = entityMap.get(range.key);
       return entity?.type === 'LINK' && entity.data.url;
@@ -262,11 +272,12 @@ function renderBlockText(block: ContentBlock, entityMap: Map<number, EntityValue
  * Renders an atomic block by looking up its entity and returning appropriate content.
  */
 function renderAtomicBlock(block: ContentBlock, entityMap: Map<number, EntityValue>): string | undefined {
-  if (block.entityRanges.length === 0) {
+  const entityRanges = block.entityRanges ?? [];
+  if (entityRanges.length === 0) {
     return undefined;
   }
 
-  const entityKey = block.entityRanges[0].key;
+  const entityKey = entityRanges[0].key;
   const entity = entityMap.get(entityKey);
 
   if (!entity) {
@@ -332,8 +343,17 @@ export function extractArticleText(result: GraphqlTweetResult | undefined): stri
   const richBody = renderContentState(contentState);
   if (richBody) {
     // Rich content found - prepend title if not already included
-    if (title && !richBody.startsWith(title)) {
-      return `${title}\n\n${richBody}`;
+    if (title) {
+      const normalizedTitle = title.trim();
+      const trimmedBody = richBody.trimStart();
+      const headingMatches = [`# ${normalizedTitle}`, `## ${normalizedTitle}`, `### ${normalizedTitle}`];
+      const hasTitle =
+        trimmedBody === normalizedTitle ||
+        trimmedBody.startsWith(`${normalizedTitle}\n`) ||
+        headingMatches.some((heading) => trimmedBody.startsWith(heading));
+      if (!hasTitle) {
+        return `${title}\n\n${richBody}`;
+      }
     }
     return richBody;
   }

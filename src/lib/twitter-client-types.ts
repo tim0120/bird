@@ -137,17 +137,26 @@ export type GraphqlTweetResult = {
             type: string;
             text: string;
             data?: Record<string, unknown>;
-            entityRanges: Array<{ key: number; offset: number; length: number }>;
-            inlineStyleRanges: Array<{ offset: number; length: number; style: string }>;
+            entityRanges?: Array<{ key: number; offset: number; length: number }>;
+            inlineStyleRanges?: Array<{ offset: number; length: number; style: string }>;
           }>;
-          entityMap: Array<{
-            key: string;
-            value: {
-              type: string;
-              mutability: string;
-              data: Record<string, unknown>;
-            };
-          }>;
+          entityMap?:
+            | Array<{
+                key: string;
+                value: {
+                  type: string;
+                  mutability: string;
+                  data: Record<string, unknown>;
+                };
+              }>
+            | Record<
+                string,
+                {
+                  type: string;
+                  mutability: string;
+                  data: Record<string, unknown>;
+                }
+              >;
         };
       };
     };

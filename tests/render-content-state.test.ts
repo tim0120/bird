@@ -114,6 +114,27 @@ describe('renderContentState', () => {
     expect(result).toBe('```bash\necho "hello"\n```');
   });
 
+  it('handles entityMap object form', () => {
+    const result = renderContentState({
+      blocks: [
+        {
+          key: '1',
+          type: 'atomic',
+          text: ' ',
+          entityRanges: [{ key: 0, offset: 0, length: 1 }],
+        },
+      ],
+      entityMap: {
+        0: {
+          type: 'MARKDOWN',
+          mutability: 'Mutable',
+          data: { markdown: '```js\nconsole.log("ok")\n```' },
+        },
+      },
+    });
+    expect(result).toBe('```js\nconsole.log("ok")\n```');
+  });
+
   it('renders DIVIDER entity as horizontal rule', () => {
     const result = renderContentState({
       blocks: [
@@ -288,6 +309,14 @@ describe('renderContentState', () => {
       entityMap: [],
     });
     expect(result).toBe('Content\n\nMore content');
+  });
+
+  it('handles missing entityRanges on text blocks', () => {
+    const result = renderContentState({
+      blocks: [{ key: '1', type: 'unstyled', text: 'Content' }],
+      entityMap: [],
+    });
+    expect(result).toBe('Content');
   });
 
   it('handles atomic block with missing entity gracefully', () => {
