@@ -38,10 +38,10 @@ export function registerHomeCommand(program: Command, ctx: CliContext): void {
         ? await client.getHomeLatestTimeline(count, { includeRaw })
         : await client.getHomeTimeline(count, { includeRaw });
 
-      if (result.success && result.tweets) {
+      if (result.success) {
         const feedType = cmdOpts.following ? 'Following' : 'For You';
         const emptyMessage = `No tweets found in ${feedType} timeline.`;
-        const isJson = cmdOpts.json || cmdOpts.jsonFull;
+        const isJson = Boolean(cmdOpts.json || cmdOpts.jsonFull);
         ctx.printTweets(result.tweets, { json: isJson, emptyMessage });
       } else {
         console.error(`${ctx.p('err')}Failed to fetch home timeline: ${result.error}`);

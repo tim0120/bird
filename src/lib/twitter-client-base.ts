@@ -41,6 +41,10 @@ export abstract class TwitterClientBase {
 
   protected abstract getCurrentUser(): Promise<CurrentUserResult>;
 
+  protected async sleep(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   protected async getQueryId(operationName: OperationName): Promise<string> {
     const cached = await runtimeQueryIds.getQueryId(operationName);
     return cached ?? QUERY_IDS[operationName];

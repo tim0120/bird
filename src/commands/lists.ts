@@ -2,6 +2,7 @@
 // ABOUTME: Supports listing owned lists, memberships, and list timelines.
 
 import type { Command } from 'commander';
+import { parsePaginationFlags } from '../cli/pagination.js';
 import type { CliContext } from '../cli/shared.js';
 import { extractListId } from '../lib/extract-list-id.js';
 import { hyperlink } from '../lib/output.js';
@@ -99,7 +100,12 @@ export function registerListsCommand(program: Command, ctx: CliContext): void {
         const timeoutMs = ctx.resolveTimeoutFromOptions(opts);
         const quoteDepth = ctx.resolveQuoteDepthFromOptions(opts);
         const count = Number.parseInt(cmdOpts.count || '20', 10);
-        const maxPages = cmdOpts.maxPages ? Number.parseInt(cmdOpts.maxPages, 10) : undefined;
+
+        const pagination = parsePaginationFlags(cmdOpts, { maxPagesImpliesPagination: true });
+        if (!pagination.ok) {
+          console.error(`${ctx.p('err')}${pagination.error}`);
+          process.exit(1);
+        }
 
         const listId = extractListId(listIdOrUrl);
         if (!listId) {
@@ -107,13 +113,9 @@ export function registerListsCommand(program: Command, ctx: CliContext): void {
           process.exit(2);
         }
 
-        const usePagination = Boolean(cmdOpts.all || cmdOpts.cursor || maxPages !== undefined);
+        const usePagination = pagination.usePagination;
         if (!usePagination && (!Number.isFinite(count) || count <= 0)) {
           console.error(`${ctx.p('err')}Invalid --count. Expected a positive integer.`);
-          process.exit(1);
-        }
-        if (maxPages !== undefined && (!Number.isFinite(maxPages) || maxPages <= 0)) {
-          console.error(`${ctx.p('err')}Invalid --max-pages. Expected a positive integer.`);
           process.exit(1);
         }
 
@@ -131,13 +133,13 @@ export function registerListsCommand(program: Command, ctx: CliContext): void {
         const client = new TwitterClient({ cookies, timeoutMs, quoteDepth });
         const includeRaw = cmdOpts.jsonFull ?? false;
         const timelineOptions = { includeRaw };
-        const paginationOptions = { includeRaw, maxPages, cursor: cmdOpts.cursor };
+        const paginationOptions = { includeRaw, maxPages: pagination.maxPages, cursor: pagination.cursor };
 
         const result = usePagination
           ? await client.getAllListTimeline(listId, paginationOptions)
           : await client.getListTimeline(listId, count, timelineOptions);
 
-        if (result.success && result.tweets) {
+        if (result.success) {
           const isJson = Boolean(cmdOpts.json || cmdOpts.jsonFull);
           ctx.printTweetsResult(result, {
             json: isJson,

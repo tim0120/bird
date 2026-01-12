@@ -32,8 +32,11 @@ export function registerSearchCommands(program: Command, ctx: CliContext): void 
       const includeRaw = cmdOpts.jsonFull ?? false;
       const result = await client.search(query, count, { includeRaw });
 
-      if (result.success && result.tweets) {
-        ctx.printTweets(result.tweets, { json: cmdOpts.json || cmdOpts.jsonFull, emptyMessage: 'No tweets found.' });
+      if (result.success) {
+        ctx.printTweets(result.tweets, {
+          json: cmdOpts.json || cmdOpts.jsonFull,
+          emptyMessage: 'No tweets found.',
+        });
       } else {
         console.error(`${ctx.p('err')}Search failed: ${result.error}`);
         process.exit(1);
@@ -90,8 +93,11 @@ export function registerSearchCommands(program: Command, ctx: CliContext): void 
       const includeRaw = cmdOpts.jsonFull ?? false;
       const result = await client.search(query, count, { includeRaw });
 
-      if (result.success && result.tweets) {
-        ctx.printTweets(result.tweets, { json: cmdOpts.json || cmdOpts.jsonFull, emptyMessage: 'No mentions found.' });
+      if (result.success) {
+        ctx.printTweets(result.tweets, {
+          json: cmdOpts.json || cmdOpts.jsonFull,
+          emptyMessage: 'No mentions found.',
+        });
       } else {
         console.error(`${ctx.p('err')}Failed to fetch mentions: ${result.error}`);
         process.exit(1);

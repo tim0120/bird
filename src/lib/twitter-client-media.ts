@@ -28,10 +28,6 @@ export function withMedia<TBase extends AbstractConstructor<TwitterClientBase>>(
       return null;
     }
 
-    private async sleep(ms: number): Promise<void> {
-      await new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
     async uploadMedia(input: { data: Uint8Array; mimeType: string; alt?: string }): Promise<UploadMediaResult> {
       const category = this.mediaCategoryForMime(input.mimeType);
       if (!category) {

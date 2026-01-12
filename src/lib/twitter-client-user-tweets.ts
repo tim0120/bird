@@ -40,10 +40,6 @@ export function withUserTweets<TBase extends AbstractConstructor<TwitterClientBa
       return Array.from(new Set([primary, 'Wms1GvIiHXAPBaCr9KblaA']));
     }
 
-    private async sleep(ms: number): Promise<void> {
-      await new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
     /**
      * Get tweets from a user's profile timeline (single page).
      */

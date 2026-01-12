@@ -351,7 +351,7 @@ export function registerUserCommands(program: Command, ctx: CliContext): void {
       const includeRaw = cmdOpts.jsonFull ?? false;
       const result = await client.getLikes(count, { includeRaw });
 
-      if (result.success && result.tweets) {
+      if (result.success) {
         ctx.printTweets(result.tweets, {
           json: cmdOpts.json || cmdOpts.jsonFull,
           emptyMessage: 'No liked tweets found.',

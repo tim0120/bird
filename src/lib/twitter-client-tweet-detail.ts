@@ -1,3 +1,4 @@
+import { paginateCursor } from './paginate-cursor.js';
 import type { AbstractConstructor, Mixin, TwitterClientBase } from './twitter-client-base.js';
 import { TWITTER_API_BASE } from './twitter-client-constants.js';
 import { buildArticleFeatures, buildArticleFieldToggles, buildTweetDetailFeatures } from './twitter-client-features.js';
@@ -121,10 +122,6 @@ export function withTweetDetails<TBase extends AbstractConstructor<TwitterClient
       }
 
       return {};
-    }
-
-    private async sleep(ms: number): Promise<void> {
-      return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     private async fetchTweetDetail(
@@ -367,56 +364,37 @@ export function withTweetDetails<TBase extends AbstractConstructor<TwitterClient
      */
     async getRepliesPaged(tweetId: string, options: TweetDetailPaginationOptions = {}): Promise<SearchResult> {
       const { includeRaw = false, maxPages, pageDelayMs = 1000 } = options;
-      const seen = new Set<string>();
-      const allReplies: TweetData[] = [];
-      let cursor: string | undefined = options.cursor;
-      let nextCursor: string | undefined;
-      let pagesFetched = 0;
 
-      while (true) {
-        // Add delay between pages (but not before the first page)
-        if (pagesFetched > 0 && pageDelayMs > 0) {
-          await this.sleep(pageDelayMs);
-        }
-
-        const response = await this.fetchTweetDetail(tweetId, cursor);
-        if (!response.success) {
-          // If we have some replies already, return them with the error
-          if (allReplies.length > 0) {
-            return { success: false, tweets: allReplies, nextCursor: cursor, error: response.error };
+      const result = await paginateCursor<TweetData>({
+        cursor: options.cursor,
+        maxPages,
+        pageDelayMs,
+        sleep: async (ms) => this.sleep(ms),
+        getKey: (tweet) => tweet.id,
+        fetchPage: async (cursor) => {
+          const response = await this.fetchTweetDetail(tweetId, cursor);
+          if (!response.success) {
+            return response;
           }
-          return response;
-        }
-        pagesFetched += 1;
 
-        const instructions = response.data.threaded_conversation_with_injections_v2?.instructions;
-        const tweets = parseTweetsFromInstructions(instructions, { quoteDepth: this.quoteDepth, includeRaw });
-        const replies = tweets.filter((tweet) => tweet.inReplyToStatusId === tweetId);
+          const instructions = response.data.threaded_conversation_with_injections_v2?.instructions;
+          const tweets = parseTweetsFromInstructions(instructions, { quoteDepth: this.quoteDepth, includeRaw });
+          const replies = tweets.filter((tweet) => tweet.inReplyToStatusId === tweetId);
+          const pageCursor = extractCursorFromInstructions(instructions);
 
-        for (const reply of replies) {
-          if (seen.has(reply.id)) {
-            continue;
-          }
-          seen.add(reply.id);
-          allReplies.push(reply);
-        }
+          return { success: true as const, items: replies, cursor: pageCursor };
+        },
+      });
 
-        const pageCursor = extractCursorFromInstructions(instructions);
-        if (!pageCursor || pageCursor === cursor) {
-          nextCursor = undefined;
-          break;
-        }
-
-        if (maxPages && pagesFetched >= maxPages) {
-          nextCursor = pageCursor;
-          break;
-        }
-
-        cursor = pageCursor;
-        nextCursor = pageCursor;
+      if (result.success) {
+        return { success: true, tweets: result.items, nextCursor: result.nextCursor };
       }
 
-      return { success: true, tweets: allReplies, nextCursor };
+      if (result.items) {
+        return { success: false, tweets: result.items, nextCursor: result.nextCursor, error: result.error };
+      }
+
+      return { success: false, error: result.error };
     }
 
     /**
@@ -424,71 +402,50 @@ export function withTweetDetails<TBase extends AbstractConstructor<TwitterClient
      */
     async getThreadPaged(tweetId: string, options: TweetDetailPaginationOptions = {}): Promise<SearchResult> {
       const { includeRaw = false, maxPages, pageDelayMs = 1000 } = options;
-      const seen = new Set<string>();
-      const allTweets: TweetData[] = [];
-      let cursor: string | undefined = options.cursor;
-      let nextCursor: string | undefined;
-      let pagesFetched = 0;
       let rootId: string | undefined;
 
-      while (true) {
-        // Add delay between pages (but not before the first page)
-        if (pagesFetched > 0 && pageDelayMs > 0) {
-          await this.sleep(pageDelayMs);
-        }
-
-        const response = await this.fetchTweetDetail(tweetId, cursor);
-        if (!response.success) {
-          // If we have some tweets already, return them with the error
-          if (allTweets.length > 0) {
-            return { success: false, tweets: allTweets, nextCursor: cursor, error: response.error };
+      const result = await paginateCursor<TweetData>({
+        cursor: options.cursor,
+        maxPages,
+        pageDelayMs,
+        sleep: async (ms) => this.sleep(ms),
+        getKey: (tweet) => tweet.id,
+        fetchPage: async (cursor) => {
+          const response = await this.fetchTweetDetail(tweetId, cursor);
+          if (!response.success) {
+            return response;
           }
-          return response;
-        }
-        pagesFetched += 1;
 
-        const instructions = response.data.threaded_conversation_with_injections_v2?.instructions;
-        const tweets = parseTweetsFromInstructions(instructions, { quoteDepth: this.quoteDepth, includeRaw });
+          const instructions = response.data.threaded_conversation_with_injections_v2?.instructions;
+          const tweets = parseTweetsFromInstructions(instructions, { quoteDepth: this.quoteDepth, includeRaw });
 
-        // Determine root conversation ID from first page
-        if (!rootId) {
-          const target = tweets.find((t) => t.id === tweetId);
-          rootId = target?.conversationId || tweetId;
-        }
-
-        const threadTweets = tweets.filter((tweet) => tweet.conversationId === rootId);
-
-        for (const tweet of threadTweets) {
-          if (seen.has(tweet.id)) {
-            continue;
+          if (!rootId) {
+            const target = tweets.find((t) => t.id === tweetId);
+            rootId = target?.conversationId || tweetId;
           }
-          seen.add(tweet.id);
-          allTweets.push(tweet);
-        }
 
-        const pageCursor = extractCursorFromInstructions(instructions);
-        if (!pageCursor || pageCursor === cursor) {
-          nextCursor = undefined;
-          break;
-        }
+          const threadTweets = tweets.filter((tweet) => tweet.conversationId === rootId);
+          const pageCursor = extractCursorFromInstructions(instructions);
 
-        if (maxPages && pagesFetched >= maxPages) {
-          nextCursor = pageCursor;
-          break;
-        }
+          return { success: true as const, items: threadTweets, cursor: pageCursor };
+        },
+      });
 
-        cursor = pageCursor;
-        nextCursor = pageCursor;
-      }
-
-      // Sort by creation time
-      allTweets.sort((a, b) => {
+      const sortedTweets = (result.items ?? []).slice().sort((a, b) => {
         const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
         const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
         return aTime - bTime;
       });
 
-      return { success: true, tweets: allTweets, nextCursor };
+      if (result.success) {
+        return { success: true, tweets: sortedTweets, nextCursor: result.nextCursor };
+      }
+
+      if (result.items) {
+        return { success: false, tweets: sortedTweets, nextCursor: result.nextCursor, error: result.error };
+      }
+
+      return { success: false, error: result.error };
     }
   }
 

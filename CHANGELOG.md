@@ -9,6 +9,9 @@
 - `user-tweets` command to fetch a user's profile timeline (#34) — thanks @crcatala.
 - `replies` and `thread` now support pagination (`--all`, `--max-pages`, `--cursor`, `--delay`) (#35) — thanks @crcatala.
 
+### Changed
+- Library typing: `SearchResult` is now a discriminated union (so `error` only exists when `success: false`).
+
 ### Fixed
 - macOS cookie extraction now supports Brave keychain storage (#40) — thanks @gakonst.
 - Terminal hyperlinks now sanitize control characters before emitting OSC 8 sequences (#29) — thanks @mafulafunk.

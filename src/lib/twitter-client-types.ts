@@ -253,13 +253,20 @@ export interface GetTweetResult {
   error?: string;
 }
 
-export interface SearchResult {
-  success: boolean;
-  tweets?: TweetData[];
-  error?: string;
-  /** Cursor for fetching the next page of results */
-  nextCursor?: string;
-}
+export type SearchResult =
+  | {
+      success: true;
+      tweets: TweetData[];
+      /** Cursor for fetching the next page of results */
+      nextCursor?: string;
+    }
+  | {
+      success: false;
+      error: string;
+      tweets?: TweetData[];
+      /** Cursor for fetching the next page of results */
+      nextCursor?: string;
+    };
 
 export interface CurrentUserResult {
   success: boolean;

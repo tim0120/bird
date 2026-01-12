@@ -1,4 +1,5 @@
 import type { Command } from 'commander';
+import { parsePositiveIntFlag } from '../cli/pagination.js';
 import type { CliContext } from '../cli/shared.js';
 import { extractBookmarkFolderId } from '../lib/extract-bookmark-folder-id.js';
 import { TwitterClient } from '../lib/twitter-client.js';
@@ -27,7 +28,12 @@ export function registerBookmarksCommand(program: Command, ctx: CliContext): voi
         const opts = program.opts();
         const timeoutMs = ctx.resolveTimeoutFromOptions(opts);
         const count = Number.parseInt(cmdOpts.count || '20', 10);
-        const maxPages = cmdOpts.maxPages ? Number.parseInt(cmdOpts.maxPages, 10) : undefined;
+        const maxPagesParsed = parsePositiveIntFlag(cmdOpts.maxPages, '--max-pages');
+        if (!maxPagesParsed.ok) {
+          console.error(`${ctx.p('err')}${maxPagesParsed.error}`);
+          process.exit(1);
+        }
+        const maxPages = maxPagesParsed.value;
 
         const { cookies, warnings } = await ctx.resolveCredentialsFromOptions(opts);
 
@@ -49,10 +55,6 @@ export function registerBookmarksCommand(program: Command, ctx: CliContext): voi
           console.error(`${ctx.p('err')}Invalid --count. Expected a positive integer.`);
           process.exit(1);
         }
-        if (maxPages !== undefined && (!Number.isFinite(maxPages) || maxPages <= 0)) {
-          console.error(`${ctx.p('err')}Invalid --max-pages. Expected a positive integer.`);
-          process.exit(1);
-        }
 
         const client = new TwitterClient({ cookies, timeoutMs });
         const folderId = cmdOpts.folderId ? extractBookmarkFolderId(cmdOpts.folderId) : null;
@@ -71,7 +73,7 @@ export function registerBookmarksCommand(program: Command, ctx: CliContext): voi
             ? await client.getAllBookmarks(paginationOptions)
             : await client.getBookmarks(count, timelineOptions);
 
-        if (result.success && result.tweets) {
+        if (result.success) {
           const emptyMessage = folderId ? 'No bookmarks found in folder.' : 'No bookmarks found.';
           const isJson = Boolean(cmdOpts.json || cmdOpts.jsonFull);
           ctx.printTweetsResult(result, { json: isJson, usePagination, emptyMessage });

@@ -1,4 +1,5 @@
 import type { Command } from 'commander';
+import { parseNonNegativeIntFlag, parsePositiveIntFlag } from '../cli/pagination.js';
 import type { CliContext } from '../cli/shared.js';
 import { normalizeHandle } from '../lib/normalize-handle.js';
 import { TwitterClient } from '../lib/twitter-client.js';
@@ -45,8 +46,20 @@ export function registerUserTweetsCommand(program: Command, ctx: CliContext): vo
         const timeoutMs = ctx.resolveTimeoutFromOptions(opts);
         const quoteDepth = ctx.resolveQuoteDepthFromOptions(opts);
         const count = Number.parseInt(cmdOpts.count || '20', 10);
-        const maxPages = cmdOpts.maxPages ? Number.parseInt(cmdOpts.maxPages, 10) : undefined;
-        const pageDelayMs = Number.parseInt(cmdOpts.delay || '1000', 10);
+
+        const maxPagesParsed = parsePositiveIntFlag(cmdOpts.maxPages, '--max-pages');
+        if (!maxPagesParsed.ok) {
+          console.error(`${ctx.p('err')}${maxPagesParsed.error}`);
+          process.exit(2);
+        }
+        const maxPages = maxPagesParsed.value;
+
+        const delayParsed = parseNonNegativeIntFlag(cmdOpts.delay, '--delay', 1000);
+        if (!delayParsed.ok) {
+          console.error(`${ctx.p('err')}${delayParsed.error}`);
+          process.exit(2);
+        }
+        const pageDelayMs = delayParsed.value;
 
         // Validate inputs
         if (!Number.isFinite(count) || count <= 0) {
@@ -62,12 +75,8 @@ export function registerUserTweetsCommand(program: Command, ctx: CliContext): vo
           );
           process.exit(2);
         }
-        if (maxPages !== undefined && (!Number.isFinite(maxPages) || maxPages <= 0 || maxPages > hardMaxPages)) {
+        if (maxPages !== undefined && maxPages > hardMaxPages) {
           console.error(`${ctx.p('err')}Invalid --max-pages. Expected a positive integer (max: ${hardMaxPages}).`);
-          process.exit(2);
-        }
-        if (!Number.isFinite(pageDelayMs) || pageDelayMs < 0) {
-          console.error(`${ctx.p('err')}Invalid --delay. Expected a non-negative integer.`);
           process.exit(2);
         }
 
@@ -113,7 +122,7 @@ export function registerUserTweetsCommand(program: Command, ctx: CliContext): vo
           pageDelayMs,
         });
 
-        if (result.success && result.tweets) {
+        if (result.success) {
           const isJson = Boolean(cmdOpts.json || cmdOpts.jsonFull);
           ctx.printTweetsResult(result, {
             json: isJson,

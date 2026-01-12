@@ -1,4 +1,5 @@
 import type { Command } from 'commander';
+import { parsePaginationFlags } from '../cli/pagination.js';
 import type { CliContext } from '../cli/shared.js';
 import { formatStatsLine } from '../lib/output.js';
 import { TwitterClient } from '../lib/twitter-client.js';
@@ -71,16 +72,10 @@ export function registerReadCommands(program: Command, ctx: CliContext): void {
         const timeoutMs = ctx.resolveTimeoutFromOptions(opts);
         const quoteDepth = ctx.resolveQuoteDepthFromOptions(opts);
         const tweetId = ctx.extractTweetId(tweetIdOrUrl);
-        const maxPages = cmdOpts.maxPages ? Number.parseInt(cmdOpts.maxPages, 10) : undefined;
-        const pageDelayMs = Number.parseInt(cmdOpts.delay || '1000', 10);
 
-        const usePagination = Boolean(cmdOpts.all || cmdOpts.cursor || maxPages !== undefined);
-        if (maxPages !== undefined && (!Number.isFinite(maxPages) || maxPages <= 0)) {
-          console.error(`${ctx.p('err')}Invalid --max-pages. Expected a positive integer.`);
-          process.exit(1);
-        }
-        if (!Number.isFinite(pageDelayMs) || pageDelayMs < 0) {
-          console.error(`${ctx.p('err')}Invalid --delay. Expected a non-negative integer.`);
+        const pagination = parsePaginationFlags(cmdOpts, { maxPagesImpliesPagination: true, includeDelay: true });
+        if (!pagination.ok) {
+          console.error(`${ctx.p('err')}${pagination.error}`);
           process.exit(1);
         }
 
@@ -98,29 +93,30 @@ export function registerReadCommands(program: Command, ctx: CliContext): void {
         const client = new TwitterClient({ cookies, timeoutMs, quoteDepth });
         const includeRaw = cmdOpts.jsonFull ?? false;
 
-        const result = usePagination
+        const result = pagination.usePagination
           ? await client.getRepliesPaged(tweetId, {
               includeRaw,
-              maxPages,
-              cursor: cmdOpts.cursor,
-              pageDelayMs,
+              maxPages: pagination.maxPages,
+              cursor: pagination.cursor,
+              pageDelayMs: pagination.pageDelayMs,
             })
           : await client.getReplies(tweetId, { includeRaw });
 
+        const isJson = Boolean(cmdOpts.json || cmdOpts.jsonFull);
         if (result.tweets) {
-          const isJson = Boolean(cmdOpts.json || cmdOpts.jsonFull);
-          ctx.printTweetsResult(result, { json: isJson, usePagination, emptyMessage: 'No replies found.' });
+          ctx.printTweetsResult(result, {
+            json: isJson,
+            usePagination: pagination.usePagination,
+            emptyMessage: 'No replies found.',
+          });
 
           // Show pagination hint if there's more
           if (result.nextCursor && !isJson) {
             console.error(`${ctx.p('info')}More replies available. Use --cursor "${result.nextCursor}" to continue.`);
           }
+        }
 
-          if (!result.success) {
-            console.error(`${ctx.p('err')}Failed to fetch replies: ${result.error}`);
-            process.exit(1);
-          }
-        } else {
+        if (!result.success) {
           console.error(`${ctx.p('err')}Failed to fetch replies: ${result.error}`);
           process.exit(1);
         }
@@ -153,16 +149,10 @@ export function registerReadCommands(program: Command, ctx: CliContext): void {
         const timeoutMs = ctx.resolveTimeoutFromOptions(opts);
         const quoteDepth = ctx.resolveQuoteDepthFromOptions(opts);
         const tweetId = ctx.extractTweetId(tweetIdOrUrl);
-        const maxPages = cmdOpts.maxPages ? Number.parseInt(cmdOpts.maxPages, 10) : undefined;
-        const pageDelayMs = Number.parseInt(cmdOpts.delay || '1000', 10);
 
-        const usePagination = Boolean(cmdOpts.all || cmdOpts.cursor || maxPages !== undefined);
-        if (maxPages !== undefined && (!Number.isFinite(maxPages) || maxPages <= 0)) {
-          console.error(`${ctx.p('err')}Invalid --max-pages. Expected a positive integer.`);
-          process.exit(1);
-        }
-        if (!Number.isFinite(pageDelayMs) || pageDelayMs < 0) {
-          console.error(`${ctx.p('err')}Invalid --delay. Expected a non-negative integer.`);
+        const pagination = parsePaginationFlags(cmdOpts, { maxPagesImpliesPagination: true, includeDelay: true });
+        if (!pagination.ok) {
+          console.error(`${ctx.p('err')}${pagination.error}`);
           process.exit(1);
         }
 
@@ -180,18 +170,22 @@ export function registerReadCommands(program: Command, ctx: CliContext): void {
         const client = new TwitterClient({ cookies, timeoutMs, quoteDepth });
         const includeRaw = cmdOpts.jsonFull ?? false;
 
-        const result = usePagination
+        const result = pagination.usePagination
           ? await client.getThreadPaged(tweetId, {
               includeRaw,
-              maxPages,
-              cursor: cmdOpts.cursor,
-              pageDelayMs,
+              maxPages: pagination.maxPages,
+              cursor: pagination.cursor,
+              pageDelayMs: pagination.pageDelayMs,
             })
           : await client.getThread(tweetId, { includeRaw });
 
+        const isJson = Boolean(cmdOpts.json || cmdOpts.jsonFull);
         if (result.tweets) {
-          const isJson = Boolean(cmdOpts.json || cmdOpts.jsonFull);
-          ctx.printTweetsResult(result, { json: isJson, usePagination, emptyMessage: 'No thread tweets found.' });
+          ctx.printTweetsResult(result, {
+            json: isJson,
+            usePagination: pagination.usePagination,
+            emptyMessage: 'No thread tweets found.',
+          });
 
           // Show pagination hint if there's more
           if (result.nextCursor && !isJson) {
@@ -199,12 +193,9 @@ export function registerReadCommands(program: Command, ctx: CliContext): void {
               `${ctx.p('info')}More thread tweets available. Use --cursor "${result.nextCursor}" to continue.`,
             );
           }
+        }
 
-          if (!result.success) {
-            console.error(`${ctx.p('err')}Failed to fetch thread: ${result.error}`);
-            process.exit(1);
-          }
-        } else {
+        if (!result.success) {
           console.error(`${ctx.p('err')}Failed to fetch thread: ${result.error}`);
           process.exit(1);
         }
