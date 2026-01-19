@@ -307,21 +307,11 @@ export function withUserLookup<TBase extends AbstractConstructor<TwitterClientBa
         };
       };
 
-      const firstAttempt = await tryOnce();
-      if (firstAttempt.success) {
-        return { success: true, aboutProfile: firstAttempt.aboutProfile };
+      const { result } = await this.withRefreshedQueryIdsOn404(tryOnce);
+      if (result.success) {
+        return { success: true, aboutProfile: result.aboutProfile };
       }
-
-      if (firstAttempt.had404) {
-        await this.refreshQueryIds();
-        const secondAttempt = await tryOnce();
-        if (secondAttempt.success) {
-          return { success: true, aboutProfile: secondAttempt.aboutProfile };
-        }
-        return { success: false, error: secondAttempt.error };
-      }
-
-      return { success: false, error: firstAttempt.error };
+      return { success: false, error: result.error };
     }
   }
 

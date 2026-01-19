@@ -374,29 +374,21 @@ export function withUsers<TBase extends AbstractConstructor<TwitterClientBase>>(
         return { success: false as const, error: lastError ?? 'Unknown error fetching following', had404 };
       };
 
-      const firstAttempt = await tryOnce();
-      if (firstAttempt.success) {
-        return { success: true, users: firstAttempt.users, nextCursor: firstAttempt.nextCursor };
+      const { result, refreshed } = await this.withRefreshedQueryIdsOn404(tryOnce);
+      if (result.success) {
+        return { success: true, users: result.users, nextCursor: result.nextCursor };
       }
 
-      if (firstAttempt.had404) {
-        await this.refreshQueryIds();
-        const secondAttempt = await tryOnce();
-        if (secondAttempt.success) {
-          return { success: true, users: secondAttempt.users, nextCursor: secondAttempt.nextCursor };
-        }
-
+      if (refreshed) {
         // GraphQL Following can also return 404 (queryId churn / endpoint flakiness).
         // Fallback to the internal v1.1 REST endpoint used by the web client (cookie-auth; no dev API key).
         const restAttempt = await this.getFollowingViaRest(userId, count, cursor);
         if (restAttempt.success) {
           return restAttempt;
         }
-
-        return { success: false, error: secondAttempt.error };
       }
 
-      return { success: false, error: firstAttempt.error };
+      return { success: false, error: result.error };
     }
 
     /**
@@ -479,29 +471,21 @@ export function withUsers<TBase extends AbstractConstructor<TwitterClientBase>>(
         return { success: false as const, error: lastError ?? 'Unknown error fetching followers', had404 };
       };
 
-      const firstAttempt = await tryOnce();
-      if (firstAttempt.success) {
-        return { success: true, users: firstAttempt.users, nextCursor: firstAttempt.nextCursor };
+      const { result, refreshed } = await this.withRefreshedQueryIdsOn404(tryOnce);
+      if (result.success) {
+        return { success: true, users: result.users, nextCursor: result.nextCursor };
       }
 
-      if (firstAttempt.had404) {
-        await this.refreshQueryIds();
-        const secondAttempt = await tryOnce();
-        if (secondAttempt.success) {
-          return { success: true, users: secondAttempt.users, nextCursor: secondAttempt.nextCursor };
-        }
-
+      if (refreshed) {
         // GraphQL Followers regularly returns 404 (queryId churn / endpoint flakiness).
         // Fallback to the internal v1.1 REST endpoint used by the web client (cookie-auth; no dev API key).
         const restAttempt = await this.getFollowersViaRest(userId, count, cursor);
         if (restAttempt.success) {
           return restAttempt;
         }
-
-        return { success: false, error: secondAttempt.error };
       }
 
-      return { success: false, error: firstAttempt.error };
+      return { success: false, error: result.error };
     }
   }
 

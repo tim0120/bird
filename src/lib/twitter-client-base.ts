@@ -61,6 +61,18 @@ export abstract class TwitterClientBase {
     }
   }
 
+  protected async withRefreshedQueryIdsOn404<T extends { success: boolean; had404?: boolean }>(
+    attempt: () => Promise<T>,
+  ): Promise<{ result: T; refreshed: boolean }> {
+    const firstAttempt = await attempt();
+    if (firstAttempt.success || !firstAttempt.had404) {
+      return { result: firstAttempt, refreshed: false };
+    }
+    await this.refreshQueryIds();
+    const secondAttempt = await attempt();
+    return { result: secondAttempt, refreshed: true };
+  }
+
   protected async getTweetDetailQueryIds(): Promise<string[]> {
     const primary = await this.getQueryId('TweetDetail');
     return Array.from(new Set([primary, '97JF30KziU00483E_8elBA', 'aFvUsJm2c-oDkJV75blV6g']));
