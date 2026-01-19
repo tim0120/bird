@@ -1,6 +1,7 @@
 import type { AbstractConstructor } from './twitter-client-base.js';
 import { TwitterClientBase } from './twitter-client-base.js';
 import { type TwitterClientBookmarkMethods, withBookmarks } from './twitter-client-bookmarks.js';
+import { type TwitterClientEngagementMethods, withEngagement } from './twitter-client-engagement.js';
 import { type TwitterClientFollowMethods, withFollow } from './twitter-client-follow.js';
 import { type TwitterClientHomeMethods, withHome } from './twitter-client-home.js';
 import { type TwitterClientListMethods, withLists } from './twitter-client-lists.js';
@@ -16,6 +17,7 @@ import { type TwitterClientUserMethods, withUsers } from './twitter-client-users
 
 type TwitterClientInstance = TwitterClientBase &
   TwitterClientBookmarkMethods &
+  TwitterClientEngagementMethods &
   TwitterClientFollowMethods &
   TwitterClientHomeMethods &
   TwitterClientListMethods &
@@ -30,6 +32,7 @@ type TwitterClientInstance = TwitterClientBase &
   TwitterClientUserTweetsMethods;
 
 // News mixin wraps search because it depends on the search() method
+// Engagement mixin adds like/unlike/retweet/unretweet/bookmark methods
 const MixedTwitterClient = withNews(
   withUserTweets(
     withUserLookup(
@@ -37,7 +40,9 @@ const MixedTwitterClient = withNews(
         withLists(
           withHome(
             withTimelines(
-              withSearch(withTweetDetails(withPosting(withFollow(withBookmarks(withMedia(TwitterClientBase)))))),
+              withSearch(
+                withTweetDetails(withPosting(withEngagement(withFollow(withBookmarks(withMedia(TwitterClientBase)))))),
+              ),
             ),
           ),
         ),
