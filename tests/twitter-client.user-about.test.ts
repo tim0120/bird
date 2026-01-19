@@ -119,7 +119,7 @@ describe('TwitterClient getUserAboutAccount', () => {
   });
 
   it('handles HTTP 404 error', async () => {
-    mockFetch.mockResolvedValueOnce({
+    mockFetch.mockResolvedValue({
       ok: false,
       status: 404,
       text: async () => 'Not Found',

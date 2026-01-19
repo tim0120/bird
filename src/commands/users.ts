@@ -1,7 +1,10 @@
 import type { Command } from 'commander';
 import type { CliContext } from '../cli/shared.js';
+import { normalizeHandle } from '../lib/normalize-handle.js';
 import { TwitterClient } from '../lib/twitter-client.js';
 import type { TwitterUser } from '../lib/twitter-client-types.js';
+
+const LEADING_AT_REGEX = /^@+/;
 
 type PagedUsersResult = {
   success: boolean;
@@ -322,6 +325,7 @@ export function registerUserCommands(program: Command, ctx: CliContext): void {
     .action(async (username: string, cmdOpts: { json?: boolean }) => {
       const opts = program.opts();
       const timeoutMs = ctx.resolveTimeoutFromOptions(opts);
+      const normalizedHandle = normalizeHandle(username);
 
       const { cookies, warnings } = await ctx.resolveCredentialsFromOptions(opts);
 
@@ -342,7 +346,8 @@ export function registerUserCommands(program: Command, ctx: CliContext): void {
           console.log(JSON.stringify(result.aboutProfile, null, 2));
         } else {
           const profile = result.aboutProfile;
-          console.log(`${ctx.p('info')}Account information for @${username}:`);
+          const displayHandle = normalizedHandle ?? username.replace(LEADING_AT_REGEX, '');
+          console.log(`${ctx.p('info')}Account information for @${displayHandle}:`);
           if (profile.accountBasedIn) {
             console.log(`  Account based in: ${profile.accountBasedIn}`);
           }

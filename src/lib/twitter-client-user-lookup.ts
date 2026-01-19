@@ -231,72 +231,97 @@ export function withUserLookup<TBase extends AbstractConstructor<TwitterClientBa
         variables: JSON.stringify(variables),
       });
 
-      let lastError: string | undefined;
-      const queryIds = await this.getAboutAccountQueryIds();
+      const tryOnce = async () => {
+        let lastError: string | undefined;
+        let had404 = false;
+        const queryIds = await this.getAboutAccountQueryIds();
 
-      for (const queryId of queryIds) {
-        const url = `${TWITTER_API_BASE}/${queryId}/AboutAccountQuery?${params.toString()}`;
+        for (const queryId of queryIds) {
+          const url = `${TWITTER_API_BASE}/${queryId}/AboutAccountQuery?${params.toString()}`;
 
-        try {
-          const response = await this.fetchWithTimeout(url, {
-            method: 'GET',
-            headers: this.getHeaders(),
-          });
+          try {
+            const response = await this.fetchWithTimeout(url, {
+              method: 'GET',
+              headers: this.getHeaders(),
+            });
 
-          if (!response.ok) {
-            const text = await response.text();
-            if (response.status === 404) {
-              lastError = `HTTP ${response.status}`;
+            if (!response.ok) {
+              const text = await response.text();
+              if (response.status === 404) {
+                had404 = true;
+                lastError = `HTTP ${response.status}`;
+                continue;
+              }
+              lastError = `HTTP ${response.status}: ${text.slice(0, 200)}`;
               continue;
             }
-            lastError = `HTTP ${response.status}: ${text.slice(0, 200)}`;
-            continue;
-          }
 
-          const data = (await response.json()) as {
-            data?: {
-              user_result_by_screen_name?: {
-                result?: {
-                  about_profile?: {
-                    account_based_in?: string;
-                    source?: string;
-                    created_country_accurate?: boolean;
-                    location_accurate?: boolean;
-                    learn_more_url?: string;
+            const data = (await response.json()) as {
+              data?: {
+                user_result_by_screen_name?: {
+                  result?: {
+                    about_profile?: {
+                      account_based_in?: string;
+                      source?: string;
+                      created_country_accurate?: boolean;
+                      location_accurate?: boolean;
+                      learn_more_url?: string;
+                    };
                   };
                 };
               };
+              errors?: Array<{ message: string }>;
             };
-            errors?: Array<{ message: string }>;
-          };
 
-          if (data.errors && data.errors.length > 0) {
-            lastError = data.errors.map((e) => e.message).join(', ');
-            continue;
+            if (data.errors && data.errors.length > 0) {
+              lastError = data.errors.map((e) => e.message).join(', ');
+              continue;
+            }
+
+            const aboutProfile = data.data?.user_result_by_screen_name?.result?.about_profile;
+            if (!aboutProfile) {
+              lastError = 'Missing about_profile in response';
+              continue;
+            }
+
+            return {
+              success: true as const,
+              aboutProfile: {
+                accountBasedIn: aboutProfile.account_based_in,
+                source: aboutProfile.source,
+                createdCountryAccurate: aboutProfile.created_country_accurate,
+                locationAccurate: aboutProfile.location_accurate,
+                learnMoreUrl: aboutProfile.learn_more_url,
+              },
+              had404,
+            };
+          } catch (error) {
+            lastError = error instanceof Error ? error.message : String(error);
           }
-
-          const aboutProfile = data.data?.user_result_by_screen_name?.result?.about_profile;
-          if (!aboutProfile) {
-            lastError = 'Missing about_profile in response';
-            continue;
-          }
-
-          return {
-            success: true,
-            aboutProfile: {
-              accountBasedIn: aboutProfile.account_based_in,
-              source: aboutProfile.source,
-              createdCountryAccurate: aboutProfile.created_country_accurate,
-              locationAccurate: aboutProfile.location_accurate,
-              learnMoreUrl: aboutProfile.learn_more_url,
-            },
-          };
-        } catch (error) {
-          lastError = error instanceof Error ? error.message : String(error);
         }
+
+        return {
+          success: false as const,
+          error: lastError ?? 'Unknown error fetching account details',
+          had404,
+        };
+      };
+
+      const firstAttempt = await tryOnce();
+      if (firstAttempt.success) {
+        return { success: true, aboutProfile: firstAttempt.aboutProfile };
       }
 
-      return { success: false, error: lastError ?? 'Unknown error fetching account details' };
+      if (firstAttempt.had404) {
+        await this.refreshQueryIds();
+        const secondAttempt = await tryOnce();
+        if (secondAttempt.success) {
+          return { success: true, aboutProfile: secondAttempt.aboutProfile };
+        }
+        return { success: false, error: secondAttempt.error };
+      }
+
+      return { success: false, error: firstAttempt.error };
     }
   }
 
