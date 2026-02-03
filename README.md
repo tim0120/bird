@@ -386,3 +386,64 @@ pnpm run lint
 
 - GraphQL uses internal X endpoints and can be rate limited (429).
 - Query IDs rotate; refresh at runtime with `bird query-ids --fresh` (or update the baked baseline via `pnpm run graphql:update`).
+
+---
+
+## Fork Notes (@tim0120)
+
+This fork adds **file-based logging** for debugging tweet posting issues (error 226 bot detection, error 344 permissions, etc.).
+
+### Logging
+
+Logs are written to:
+- **macOS**: `~/Library/Logs/bird-fork.log`
+- **Linux**: `~/.local/share/bird-fork/bird.log`
+
+Logs include: tweet attempts, endpoint selection, response status codes, error codes/messages, and fallback behavior.
+
+```bash
+# Watch logs in real-time
+tail -f ~/Library/Logs/bird-fork.log
+```
+
+### My zsh Aliases
+
+I use these aliases in `~/.zshrc` for quick tweeting with image preview:
+
+```bash
+# Helper to get latest image from Maccy clipboard manager
+maccy-img() {
+  sqlite3 "$HOME/Library/Containers/org.p0deje.Maccy/Data/Library/Application Support/Maccy/Storage.sqlite" \
+    "SELECT writefile('/tmp/clip.png', hic.ZVALUE) FROM ZHISTORYITEM hi JOIN ZHISTORYITEMCONTENT hic ON hic.ZITEM = hi.Z_PK WHERE hic.ZTYPE = 'public.png' ORDER BY hi.ZLASTCOPIEDAT DESC LIMIT 1" >/dev/null
+}
+
+# Tweet with optional --img flag for clipboard image
+tweet() {
+  if [[ "$1" == "--img" ]]; then
+    shift
+    pngpaste /tmp/clip.png 2>/dev/null || maccy-img
+    catimg -w 100 /tmp/clip.png  # preview image in terminal
+    read "?Tweet this? [y/N] "
+    if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+      node ~/Developer/projects/bird-fork/dist/cli.js \
+        --cookie-source firefox --firefox-profile "zen-profile" \
+        tweet "$@" --media /tmp/clip.png
+    fi
+  else
+    node ~/Developer/projects/bird-fork/dist/cli.js \
+      --cookie-source firefox --firefox-profile "zen-profile" \
+      tweet "$@"
+  fi
+}
+
+# Alias for Safari cookies (different account)
+alias tweet-tim='node ~/Developer/projects/bird-fork/dist/cli.js tweet'
+```
+
+**Dependencies:** `pngpaste` (brew), `catimg` (brew), [Maccy](https://maccy.app/) clipboard manager (optional)
+
+### Why Fork?
+
+The upstream `bird` works great, but I wanted:
+1. **Logging** to debug Twitter's increasingly aggressive bot detection
+2. **Quick image tweeting** from clipboard with terminal preview
