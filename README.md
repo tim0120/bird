@@ -23,69 +23,77 @@ Tweet this? [y/N] y
 🔗 https://x.com/i/status/123456789
 ```
 
-### Setup (zsh)
+## Install
+
+**One-liner:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/tim0120/bird/main/install.sh | bash
+```
+
+**Or manually:**
+```bash
+git clone https://github.com/tim0120/bird.git ~/Developer/projects/bird
+cd ~/Developer/projects/bird
+pnpm install && pnpm run build
+brew install pngpaste catimg  # macOS
+```
+
+## Setup (zsh)
 
 Add to `~/.zshrc`:
 
 ```bash
-# Helper to get latest image from Maccy clipboard manager
-maccy-img() {
-  sqlite3 "$HOME/Library/Containers/org.p0deje.Maccy/Data/Library/Application Support/Maccy/Storage.sqlite" \
-    "SELECT writefile('/tmp/clip.png', hic.ZVALUE) FROM ZHISTORYITEM hi JOIN ZHISTORYITEMCONTENT hic ON hic.ZITEM = hi.Z_PK WHERE hic.ZTYPE = 'public.png' ORDER BY hi.ZLASTCOPIEDAT DESC LIMIT 1" >/dev/null
-}
-
-# Tweet with optional --img flag for clipboard image
+# bird - clipboard image tweeting
 tweet() {
+  local BIRD="node $HOME/Developer/projects/bird/dist/cli.js"
   if [[ "$1" == "--img" ]]; then
     shift
-    pngpaste /tmp/clip.png 2>/dev/null || maccy-img
-    catimg -w 100 /tmp/clip.png  # preview in terminal
+    pngpaste /tmp/clip.png 2>/dev/null
+    catimg -w 100 /tmp/clip.png
     read "?Tweet this? [y/N] "
-    if [[ "$REPLY" =~ ^[Yy]$ ]]; then
-      node ~/Developer/projects/bird/dist/cli.js \
-        --cookie-source firefox --firefox-profile "zen-profile" \
-        tweet "$@" --media /tmp/clip.png
-    fi
+    [[ "$REPLY" =~ ^[Yy]$ ]] && $BIRD tweet "$@" --media /tmp/clip.png
   else
-    node ~/Developer/projects/bird/dist/cli.js \
-      --cookie-source firefox --firefox-profile "zen-profile" \
-      tweet "$@"
+    $BIRD tweet "$@"
   fi
 }
 ```
 
-**Usage:**
-```bash
-tweet "hello world"              # text only
-tweet --img "check this out"     # clipboard image + preview
-```
+Then: `source ~/.zshrc`
 
-**Dependencies:**
-- `pngpaste` (`brew install pngpaste`)
-- `catimg` (`brew install catimg`)
-- [Maccy](https://maccy.app/) clipboard manager (optional fallback)
+### Cookie Auth
 
-## Install
+bird uses browser cookies. Pick your browser:
 
 ```bash
-git clone https://github.com/tim0120/bird.git
-cd bird
-pnpm install
-pnpm run build
+# Safari (default)
+$BIRD tweet "hello"
+
+# Chrome
+$BIRD --cookie-source chrome tweet "hello"
+
+# Firefox (with profile)
+$BIRD --cookie-source firefox --firefox-profile "default-release" tweet "hello"
 ```
 
-Then update your `~/.zshrc` to point to `~/path/to/bird/dist/cli.js`.
+### Multiple Accounts
+
+Create aliases for different browsers/profiles:
+
+```bash
+alias tweet-main='node ~/Developer/projects/bird/dist/cli.js --cookie-source safari tweet'
+alias tweet-alt='node ~/Developer/projects/bird/dist/cli.js --cookie-source firefox --firefox-profile "work" tweet'
+```
 
 ## Logging
 
-This fork also adds file-based logging to help debug Twitter's bot detection.
-
-**Log locations:**
-- macOS: `~/Library/Logs/bird-fork.log`
-- Linux: `~/.local/share/bird-fork/bird.log`
+This fork adds file-based logging to debug Twitter's bot detection (errors 226, 344).
 
 ```bash
+# macOS
 tail -f ~/Library/Logs/bird-fork.log
+
+# Linux
+tail -f ~/.local/share/bird-fork/bird.log
 ```
 
 ## Upstream
